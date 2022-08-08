@@ -1,7 +1,7 @@
 import re
 import time
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta
 
 WATT_RE = re.compile(r'\b(\w+) ([0-9.]+)(\w?)W?\/([0-9.]+)(\w?)W?\b')
 
@@ -80,15 +80,58 @@ class TegraWATTS(object):
                     print(f"\t\t{name:6} | {watts}")
                 i += 1
 
-    def get_cur_agg(self, ts):
-        dt = datetime.fromtimestamp(ts // 1)
+    # def get_cur_agg(self, ts):
+    #     dt = datetime.fromtimestamp(ts // 1)
+    #     entry = ts % 1 * len(self.powerlog[dt]) // 1
+    #     return self.powerlog[dt][entry]['cur_agg']
 
-        assert dt in self.powerlog, f"Inference timestamp {dt} not profiled by tegrastats."
-        entry = ts % 1 * len(self.powerlog[dt]) // 1
-        return self.powerlog[dt][entry]['cur_agg']
+    def get_integrals(self, ts_start, ts_finish, verbose=False):
+        dt_0 = datetime.fromtimestamp(ts_start // 1)
+        dt_n = datetime.fromtimestamp(ts_finish // 1)
+        assert dt_0 in self.powerlog, f"Inference timestamp {dt_0} not profiled by tegrastats."
+        assert dt_n in self.powerlog, f"Inference timestamp {dt_0} not profiled by tegrastats."
+        
+        if dt_0 == dt_n:
+            num_intervals = len(self.powerlog[dt_0])
+            delta = 1 / num_intervals
+            start = int(ts_start % 1 * num_intervals // 1)
+            finish = int(ts_finish % 1 * num_intervals // 1 + 1)
+            sum_ = 0
+            for i in range(start, finish):
+                sum_ += self.powerlog[dt_0][i]['cur_agg'] * delta
 
+            return sum_ 
+        
+        dt = dt_0
+        sum_ = 0
+        while(True):
 
-    def align(self):
+            num_intervals = len(self.powerlog[dt])
+            delta = 1 / num_intervals
+
+            if dt == dt_0:
+                start = int(ts_start % 1 * num_intervals // 1)
+                finish = num_intervals
+            elif dt == dt_n:
+                start = 0
+                finish = int(ts_finish % 1 * num_intervals // 1 + 1)
+            else:
+                start = 0
+                finish = num_intervals
+
+            for i in range(start, finish):
+                if verbose:
+                    print('\t', dt, i, self.powerlog[dt][i]['cur_agg'], delta)
+                sum_ += self.powerlog[dt][i]['cur_agg'] * delta
+
+            if dt == dt_n:
+                break
+
+            dt = dt + timedelta(seconds=1)
+        
+        return sum_ 
+
+    def align(self, verbose=False):
 
         f_inferlog = open(self.fn_inferlog, 'r')
         f_energylog = open(self.fn_energylog, 'w')
@@ -97,10 +140,9 @@ class TegraWATTS(object):
         for layername, ts_start, ts_finish in reader:
             ts_start = float(ts_start)
             ts_finish = float(ts_finish)
-            cur_agg_start = self.get_cur_agg(ts_start)
-            cur_agg_finish = self.get_cur_agg(ts_finish)
-            power_avg = (cur_agg_start + cur_agg_finish) / 2
-            energy = power_avg * (ts_finish - ts_start)
+
+            energy = self.get_integrals(ts_start, ts_finish, verbose)
+
             f_energylog.write(f"{layername},{ts_finish-ts_start:.6f},{energy:.4f}\n")
         
         f_inferlog.close()
@@ -112,7 +154,7 @@ class TegraWATTS(object):
             self.print_powerlog()
             for dt, wattsdictdict in tegraWATTS.powerlog.items():
                 print(f"{dt} ({dt.timestamp()}) | {len(wattsdictdict)}")
-        self.align()
+        self.align(verbose=verbose)
 
 
 
