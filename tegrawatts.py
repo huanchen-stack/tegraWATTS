@@ -98,7 +98,20 @@ class TegraWATTS(object):
             finish = int(ts_finish % 1 * num_intervals // 1 + 1)
             sum_ = 0
             for i in range(start, finish):
-                sum_ += self.powerlog[dt_0][i]['cur_agg'] * delta
+
+                if start == finish-1:
+                    delta_ = ts_finish - ts_start
+                elif i == start:
+                    delta_ = delta - (ts_start % 1 - i * delta)
+                elif i == finish-1:
+                    delta_ = ts_finish % 1 - i * delta
+                else:
+                    delta_ = delta
+
+                if verbose:
+                    print('\t', dt_0, i, self.powerlog[dt_0][i]['cur_agg'], delta_)
+
+                sum_ += self.powerlog[dt_0][i]['cur_agg'] * delta_
 
             return sum_ 
         
@@ -120,9 +133,18 @@ class TegraWATTS(object):
                 finish = num_intervals
 
             for i in range(start, finish):
+
+                if dt == dt_0 and i == start:
+                    delta_ = delta - (ts_start % 1 - i * delta)
+                elif dt == dt_n and i == finish-1:
+                    delta_ = ts_finish % 1 - i * delta
+                else:
+                    delta_ = delta
+
                 if verbose:
-                    print('\t', dt, i, self.powerlog[dt][i]['cur_agg'], delta)
-                sum_ += self.powerlog[dt][i]['cur_agg'] * delta
+                    print('\t', dt, i, self.powerlog[dt][i]['cur_agg'], delta_)
+
+                sum_ += self.powerlog[dt][i]['cur_agg'] * delta_
 
             if dt == dt_n:
                 break
@@ -159,4 +181,4 @@ class TegraWATTS(object):
 
 
 tegraWATTS = TegraWATTS()
-tegraWATTS.get_WATTS()
+tegraWATTS.get_WATTS(verbose=True)
