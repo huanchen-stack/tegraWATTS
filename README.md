@@ -25,7 +25,9 @@ tegrastats --interval 1 --tegralog.txt
 ```
 python3 detect.py --inferlog inferlog.csv
 ```
-3. parse tegralog.txt and align with inferlog.csv
+3. stop tegrastats (command+C)
+4. move inferlog.csv into this folder
+5. parse tegralog.txt and align with inferlog.csv
 ```
 python3 tegraWATTS.py
 ```
