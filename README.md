@@ -17,17 +17,6 @@ layername,ts_start,ts_finish
 layername,duration,energy_consumption
 ```
 ## How to Use ##
-1. start running tegrastats under the directory of this folder in one terminal
-```
-tegrastats --interval 1 --tegralog.txt
-```
-2. start running model inference under the directory of another folder in another terminal
-```
-python3 detect.py --inferlog inferlog.csv
-```
-3. stop tegrastats (command+C)
-4. move inferlog.csv into this folder
-5. parse tegralog.txt and align with inferlog.csv
-```
-python3 tegraWATTS.py
-```
+1. To run customized `tegrastats`, run `spinningclock.py`
+2. Store starting/finishing timestamps in `inferlog.csv`
+3. To get Energy Consumption, run `tegrawatts.py`. See `energylog.csv` for results.
