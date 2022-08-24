@@ -32,6 +32,8 @@ class TegraWATTS(object):
             fn_energylog="energylog.csv"
         ):
         super().__init__()
+
+        self.device_name = "jetson-" + input("Enter device name: jetson-")
         
         self.fn_tegralog = fn_tegralog
         self.fn_inferlog = fn_inferlog
@@ -45,18 +47,29 @@ class TegraWATTS(object):
         for log in f_log:
             time = datetime.strptime(log[:19], "%m-%d-%Y %H:%M:%S")
             if time not in self.powerlog:
+                print(f"parsing power info for time = {time}")
                 self.powerlog[time] = {}
-            
+                # print(self.powerlog.keys()) 
             watts = {
                 str(name): {
                     'cur': int(cur), 
                     'avg': int(avg)
                 } for name, cur, _, avg, _ in re.findall(WATT_RE, log)
             }
-            cur_agg = 0
-            for _, wattsdict in watts.items():
-                cur_agg += wattsdict['cur']
-            watts['cur_agg'] = cur_agg
+
+            ########################################
+            # not sure which entry to use on agx
+            ########################################
+            if self.device_name == "jetson-agx":
+                cur_agg = 0
+                for _, wattsdict in watts.items():
+                    cur_agg += wattsdict['cur']
+                watts['cur_agg'] = cur_agg
+
+            #######################################
+            # use POM_5V_IN for jetson-nano
+            if self.device_name == "jetson-nano":
+                watts['cur_agg'] = watts['POM_5V_IN']['cur']
 
             self.powerlog[time][len(self.powerlog[time])] = watts
 
@@ -88,8 +101,9 @@ class TegraWATTS(object):
     def get_integrals(self, ts_start, ts_finish, verbose=False):
         dt_0 = datetime.fromtimestamp(ts_start // 1)
         dt_n = datetime.fromtimestamp(ts_finish // 1)
-        assert dt_0 in self.powerlog, f"Inference timestamp {dt_0} not profiled by tegrastats."
-        assert dt_n in self.powerlog, f"Inference timestamp {dt_0} not profiled by tegrastats."
+        print(dt_0, dt_n)
+        assert dt_0 in self.powerlog, f"Inference timestamp ts_start = {dt_0} not profiled or fully profiled by tegrastats."
+        assert dt_n in self.powerlog, f"Inference timestamp ts_finish = {dt_n} not profiled or fully profiled by tegrastats."
         
         if dt_0 == dt_n:
             num_intervals = len(self.powerlog[dt_0])
@@ -172,6 +186,7 @@ class TegraWATTS(object):
 
     def get_WATTS(self, verbose=False):
         self.parse()
+        print(self.powerlog.keys())
         if verbose:
             self.print_powerlog()
             for dt, wattsdictdict in tegraWATTS.powerlog.items():
