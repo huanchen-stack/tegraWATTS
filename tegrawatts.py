@@ -31,6 +31,7 @@ class TegraWATTS(object):
             fn_inferlog="inferlog.csv",
             fn_energylog="energylog.csv"
         ):
+        # input file names are HARDCODED here, make changes if needed
         super().__init__()
 
         self.device_name = "jetson-" + input("Enter device name: jetson-")
@@ -42,9 +43,18 @@ class TegraWATTS(object):
         self.powerlog = {}
 
     def parse(self, filename="tegralog.txt"):
+        """
+        This function only parse the outputs from tegralog.txt 
+        with regular expressions.
+        Certain columns are selected from tegrastats' output for
+        our energy measurement.
+        """
+
         f_log = open(filename, 'r')
 
         for log in f_log:
+            # see input file format for more details
+
             time = datetime.strptime(log[:19], "%m-%d-%Y %H:%M:%S")
             if time not in self.powerlog:
                 print(f"parsing power info for time = {time}")
@@ -82,6 +92,7 @@ class TegraWATTS(object):
         self.powerlog.pop(dt_list[-1])
     
     def print_powerlog(self, head=True):
+        """Print info in verbose mode."""
         i = 0
         for dt, wattsdictdict in self.powerlog.items():
             print(dt)
@@ -99,12 +110,18 @@ class TegraWATTS(object):
     #     return self.powerlog[dt][entry]['cur_agg']
 
     def get_integrals(self, ts_start, ts_finish, verbose=False):
+        """
+        This function computes the discrete integral of power: 
+        Energy = SUM(power) d(time)
+        """
+
         dt_0 = datetime.fromtimestamp(ts_start // 1)
         dt_n = datetime.fromtimestamp(ts_finish // 1)
         print(dt_0, dt_n)
         assert dt_0 in self.powerlog, f"Inference timestamp ts_start = {dt_0} not profiled or fully profiled by tegrastats."
         assert dt_n in self.powerlog, f"Inference timestamp ts_finish = {dt_n} not profiled or fully profiled by tegrastats."
         
+        # This if statement handles the corner case where time duration is too short
         if dt_0 == dt_n:
             num_intervals = len(self.powerlog[dt_0])
             delta = 1 / num_intervals
@@ -129,6 +146,7 @@ class TegraWATTS(object):
 
             return sum_ 
         
+        # this while loop handles the SUMMATION
         dt = dt_0
         sum_ = 0
         while(True):
@@ -168,6 +186,12 @@ class TegraWATTS(object):
         return sum_ 
 
     def align(self, verbose=False):
+        """
+        Find energy consumption for EACH layer of the model.
+        This function is not tested.
+        This codebase is only tested for single layer inferences.
+        (single layer: the whole model as a 'layer')
+        """
 
         f_inferlog = open(self.fn_inferlog, 'r')
         f_energylog = open(self.fn_energylog, 'w')
@@ -185,13 +209,13 @@ class TegraWATTS(object):
         f_energylog.close()
 
     def get_WATTS(self, verbose=False):
-        self.parse()
-        print(self.powerlog.keys())
+        self.parse()  # prep data
+        print(self.powerlog.keys())  # for debug
         if verbose:
-            self.print_powerlog()
+            self.print_powerlog()  # for verbose logging
             for dt, wattsdictdict in tegraWATTS.powerlog.items():
                 print(f"{dt} ({dt.timestamp()}) | {len(wattsdictdict)}")
-        self.align(verbose=verbose)
+        self.align(verbose=verbose)  # do the actual integral
 
 
 
