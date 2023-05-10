@@ -68,7 +68,7 @@ class TegraWATTS(object):
             }
 
             ########################################
-            # not sure which entry to use on agx
+            # not sure which entry to use on agx --> correct version 2 B found on board
             ########################################
             if self.device_name == "jetson-agx":
                 cur_agg = 0
